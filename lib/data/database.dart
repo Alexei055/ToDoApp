@@ -9,12 +9,7 @@ class ToDoDataBase {
   // run this method if this is the 1st time ever opening this app
   void createInitialData() {
     toDoList = [
-      ["Make Tutorial", false, 'todo',  'Описание типа', DateTime.now().add(Duration(days: 7))],
-      ["Make Tutorial 222", false, 'todo',  'Описание типа', DateTime.now().add(Duration(days: 7))],
-      ["Make Tutorial 333", false, 'todo',  'Описание типа', DateTime.now().add(Duration(days: 7))],
-      ["Make Tutorial 444", false, 'todo',  'Описание типа', DateTime.now().add(Duration(days: 7))],
-      ["Do Exercise", false, 'active', 'Описание типа', DateTime.now().add(Duration(days: 7))],
-      ["Watch Video", false, 'done', 'Описание типа', DateTime.now().add(Duration(days: 7))],
+      ["Make Tutorial", false, 'todo',  'Описание типа', DateTime.now().add(Duration(seconds: 10)), ''],
     ];
   }
 

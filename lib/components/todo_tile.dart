@@ -66,14 +66,14 @@ class ToDoTile extends StatelessWidget {
     final now = DateTime.now();
     var difference = deadline.difference(now).inDays;
     difference = difference.abs();
-
+    debugPrint("DIFFERENCE ${difference}");
     if (2 < difference && difference <= 4 ) {
       return const Color(0xFFF0F1A5).withOpacity(0.5);
     }
     else if (difference <= 2) {
       return const Color(0xFFF4595B).withOpacity(0.5);
     }
-    return const Color(0xFFF4595B).withOpacity(0.5);
+    return const Color(0xFF4DAE51).withOpacity(0.0);
   }
 
   @override
@@ -116,10 +116,12 @@ class ToDoTile extends StatelessWidget {
             children: [
               // task name
               Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     truncateWithEllipsis(23, taskName),
                     style: TextStyle(
+                      fontWeight: FontWeight.bold,
                       decoration: taskCompleted
                           ? TextDecoration.lineThrough
                           : TextDecoration.none,

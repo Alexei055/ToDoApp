@@ -5,6 +5,12 @@ buildscript {
         mavenCentral()
     }
 
+    ext {
+        compileSdkVersion = 33                // or higher / as desired
+        targetSdkVersion = 33                // or higher / as desired
+        appCompatVersion = "1.4.2"           // or higher / as desired
+    }
+
     dependencies {
         classpath 'com.android.tools.build:gradle:7.3.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"

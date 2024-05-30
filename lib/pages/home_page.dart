@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:todoapp/components/todo_tile.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:io';
 
 import '../components/dialog_box.dart';
 import '../data/database.dart';
@@ -35,22 +37,26 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       db.toDoList[index][1] = !db.toDoList[index][1];
       db.toDoList[index][2] = db.toDoList[index][2] != 'done' ? 'done' : 'todo';
+      db.toDoList[index][5] = db.toDoList[index][5];
     });
     db.updateDataBase();
   }
 
   void saveNewTask() {
+    debugPrint("SAVE NEW TASK CALLED");
     setState(() {
-
       db.toDoList.add([
         _controller.text,
         false,
         'todo',
         _descController.text,
-        _selectedDeadline
+        _selectedDeadline,
+        _selectedFilePath, // Добавление пути к изображению
       ]);
       _controller.clear();
       _descController.clear();
+      _selectedFilePath = null;
+      _selectedDeadline = null;
     });
 
     Navigator.of(context).pop();
@@ -58,9 +64,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   DateTime? _selectedDeadline;
+  String? _selectedFilePath;
+  VideoPlayerController? _videoController;
+  dynamic mediaFile;
 
   void createNewTask() {
     showDialog(
+
       context: context,
       builder: (context) {
         return DialogBox(
@@ -73,10 +83,51 @@ class _HomePageState extends State<HomePage> {
               _selectedDeadline = newDate;
             });
           },
-          selectedDate: _selectedDeadline,
+          onFileSelected: (newFilePath) {
+            setState(() {
+              _selectedFilePath = newFilePath;
+
+              if (_selectedFilePath != null) {
+                if (_selectedFilePath!.endsWith('.mp4')) {
+                  _videoController = VideoPlayerController.file(File(_selectedFilePath!))
+                    ..initialize().then((_) {
+                      setState(() {}); // Обновление состояния для отображения видео
+                      _videoController!.play(); // Автовоспроизведение видео
+                    });
+                  mediaFile = _videoController;
+                } else {
+                  mediaFile = Image.file(File(_selectedFilePath!));
+                }
+              }
+            });
+          },
         );
       },
     );
+  }
+
+
+  void updateTask(BuildContext context, int index) {
+    showEditDialog(context, db.toDoList[index][0], db.toDoList[index][2],
+        db.toDoList[index][3], db.toDoList[index][4], (String newName,
+            String newStatus, String newDescription, DateTime newDeadline) {
+          setState(() {
+            db.toDoList[index] = [
+              newName,
+              db.toDoList[index][1],
+              newStatus,
+              newDescription,
+              newDeadline,
+              db.toDoList[index][5]
+            ];
+            if (newStatus == "done") {
+              db.toDoList[index][1] = true;
+            } else {
+              db.toDoList[index][1] = false;
+            }
+            db.updateDataBase();
+          });
+        });
   }
 
   Future<void> showEditDialog(
@@ -108,7 +159,9 @@ class _HomePageState extends State<HomePage> {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: "Имя задачи"),
                 ),
-                const SizedBox(height: 10,),
+                const SizedBox(
+                  height: 10,
+                ),
                 DropdownButton<String>(
                   value: selectedStatus,
                   onChanged: (String? newValue) {
@@ -124,12 +177,16 @@ class _HomePageState extends State<HomePage> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 10,),
+                const SizedBox(
+                  height: 10,
+                ),
                 TextField(
                   controller: descriptionController,
                   decoration: const InputDecoration(labelText: "Описание"),
                 ),
-                const SizedBox(height: 10,),
+                const SizedBox(
+                  height: 10,
+                ),
                 ElevatedButton(
                   onPressed: () async {
                     final DateTime? newDate = await showDatePicker(
@@ -139,11 +196,13 @@ class _HomePageState extends State<HomePage> {
                       lastDate: DateTime(2101),
                     );
                     if (newDate != null) {
-                      selectedDeadline = newDate;
+                      setDialogState(() {
+                        selectedDeadline = newDate;
+                      });
                     }
                   },
                   child: Text(
-                    DateFormat('dd.MM.yyyy').format(currentDeadline),
+                    DateFormat('dd.MM.yyyy').format(selectedDeadline),
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
@@ -191,7 +250,8 @@ class _HomePageState extends State<HomePage> {
                 });
                 db.updateDataBase();
 
-                Navigator.of(context).pop(); // Закрывает диалоговое окно после удаления
+                Navigator.of(context)
+                    .pop(); // Закрывает диалоговое окно после удаления
               },
             ),
           ],
@@ -201,28 +261,6 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-  void updateTask(BuildContext context, int index) {
-    showEditDialog(context, db.toDoList[index][0], db.toDoList[index][2],
-        db.toDoList[index][3], db.toDoList[index][4], (String newName,
-            String newStatus, String newDescription, DateTime newDeadline) {
-      setState(() {
-        db.toDoList[index] = [
-          newName,
-          db.toDoList[index][1],
-          newStatus,
-          newDescription,
-          newDeadline
-        ];
-        if (newStatus == "done") {
-          db.toDoList[index][1] = true;
-        } else {
-          db.toDoList[index][1] = false;
-        }
-        db.updateDataBase();
-      });
-    });
-  }
-
 
   void showToDoDetails(
       String name,
@@ -230,13 +268,38 @@ class _HomePageState extends State<HomePage> {
       String status,
       String description,
       DateTime? deadline,
+      String? imagePath,
       dynamic Function(bool?)? onChanged) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
+        Widget mediaContent = SizedBox(); // По умолчанию пустой виджет
+
+        if (imagePath != null && imagePath.isNotEmpty) {
+          if (imagePath.endsWith('.mp4')) {
+            // Это видеофайл, инициализируем VideoPlayerController
+            _videoController = VideoPlayerController.file(File(imagePath))
+              ..initialize().then((_) {
+                setState(() {});
+                _videoController!.play();
+                _videoController!.setLooping(true);
+                _videoController!.setVolume(0);
+              });
+            mediaContent = AspectRatio(
+              aspectRatio: _videoController!.value.aspectRatio,
+              child: VideoPlayer(_videoController!),
+            );
+          } else {
+            // Это изображение
+            mediaContent = Image.file(
+              File(imagePath),
+              fit: BoxFit.cover,
+            );
+          }
+        }
+
         return Container(
           padding: EdgeInsets.all(20),
-          height: 250,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -256,16 +319,17 @@ class _HomePageState extends State<HomePage> {
               ),
               SizedBox(height: 10),
               Text(
-                'Сделать до: ${deadline != null ? DateFormat('dd.MM.yyyy').format(deadline) : 'отсутсвует'}',
+                'Сделать до: ${deadline != null ? DateFormat('dd.MM.yyyy').format(deadline) : 'отсутствует'}',
                 style: TextStyle(fontSize: 16),
               ),
+              SizedBox(height: 10),
+              Expanded(child: mediaContent),
             ],
           ),
         );
       },
     );
   }
-
 
 
   @override
@@ -290,6 +354,7 @@ class _HomePageState extends State<HomePage> {
                 db.toDoList[index][2],
                 db.toDoList[index][3],
                 db.toDoList[index][4],
+                db.toDoList[index][5],
                 (bool? newValue) => checkBoxChanged(newValue, index)),
             child: ToDoTile(
               taskName: db.toDoList[index][0],
